@@ -1,6 +1,6 @@
 import pydealer
 from app.GameDeck import game_deck
-
+from collections import deque
 
 def is_bust(value):
     if value > 21:
@@ -34,6 +34,17 @@ def get_hand_value(hand: list[pydealer.Card]):
     return hand_value
 
 
+def hand_to_json(hand: deque):
+    card_list = list(hand)
+    card_list_json = []
+    for card in card_list:
+        card_list_json.append({
+            "value": card.value,
+            "suit": card.suit
+        })
+    return card_list_json
+
+
 class PlayBlackJack:
     player_hand = []
     dealer_hand = []
@@ -44,7 +55,6 @@ class PlayBlackJack:
     def __init__(self):
         self.game_deck = game_deck.GameDeck()
         self.reset_round()
-        self.play()
 
     def reset_round(self):
         self.player_hand = self.game_deck.deal_cards()
@@ -52,79 +62,60 @@ class PlayBlackJack:
         self.player_turn = True
         self.player_bust = False
         self.dealer_bust = False
-        self.play()
 
-    def get_dealer_status(self):
-        if self.player_turn:
-            print(f'Dealer has a {self.dealer_hand[0].value}')
+    def get_game_status(self):
+        viewable_dealer_hand = [self.dealer_hand[0]] if self.player_turn else self.dealer_hand.cards
+        game_status = {
+            "playerTurn": self.player_turn,
+            "dealer": {
+                "hand": hand_to_json(viewable_dealer_hand),
+                "handValue": get_hand_value(viewable_dealer_hand),
+                "isBust": self.dealer_bust,
+            },
+            "player": {
+                "hand": hand_to_json(self.player_hand.cards),
+                "handValue": get_hand_value(self.player_hand),
+                "isBust": self.player_bust
+            },
+            "winner": None
+        }
+
+        if not self.player_turn:
+            game_status["winner"] = self.get_winner()
+            self.reset_round()
+
+        return game_status
+
+    def get_winner(self):
+        dealer_value = get_hand_value(self.dealer_hand)
+        player_value = get_hand_value(self.player_hand)
+
+        if self.dealer_bust or (player_value > dealer_value and not self.player_bust):
+            return "Player"
+
+        elif player_value == dealer_value:
+            return "Push"
+
         else:
-            print('Dealer cards:  ')
-            for i in range(len(self.dealer_hand)):
-                print(self.dealer_hand[i].value)
-
-    def get_player_status(self):
-        player_hand_value = get_hand_value(self.player_hand)
-        print('Your cards: ')
-
-        for i in range(len(self.player_hand)):
-            print(self.player_hand[i].value)
-
-        if self.player_turn:
-            print(f'Total card value: {player_hand_value}')
+            return "Dealer"
 
     def play_dealer(self):
+        self.player_turn = False
         dealer_hand_value = get_hand_value(self.dealer_hand)
+
         while dealer_hand_value < 17:
             self.dealer_hand += self.game_deck.hit()
             dealer_hand_value = get_hand_value(self.dealer_hand)
+
         self.dealer_bust = is_bust(dealer_hand_value)
+        return self.get_game_status()
 
     def player_hit(self):
         self.player_hand += self.game_deck.hit()
         player_value = get_hand_value(self.player_hand)
         self.player_bust = is_bust(player_value)
 
-    def get_winner(self):
-        self.get_player_status()
-        self.get_dealer_status()
-        dealer_value = get_hand_value(self.dealer_hand)
-        player_value = get_hand_value(self.player_hand)
-        print(f"Final Player value: {player_value}")
-        print(f"Final Dealer value: {dealer_value}")
-
         if self.player_bust:
-            print('You bust! Dealer won :(')
+            self.player_turn = False
 
-        if self.dealer_bust:
-            print('The dealer bust! Player won :)')
-        
-        if dealer_value > player_value and not self.dealer_bust:
-            print('Dealer won :(')
-            
-        elif player_value > dealer_value and not self.player_bust:
-            print('Player won :)')
-        
-        if player_value == dealer_value:
-            print('Push!')
-
-        print("*******************NEW*GAME***********************\n")
-        self.reset_round()
-
-    def play(self):
-        while not self.player_bust:
-            self.get_dealer_status()
-            self.get_player_status()
-            print('Would you like to hit or stand?')
-            action = input('Input H or S: ')
-
-            if action == 'H' or action == 'h':
-                self.player_hit()
-            elif action == 'S' or action == 's':
-                self.play_dealer()
-                break
-            else:
-                print("Command unknown, please input H or S.")
-
-        print("*********************GAME*RESULTS********************\n")
-        self.player_turn = False
-        self.get_winner()
+        return self.get_game_status()
