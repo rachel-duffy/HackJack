@@ -1,0 +1,22 @@
+@use "../../colors" as colors;
+
+.welcome-content {
+  width: 50%;
+  margin: 0 auto;
+  max-width: 400px;
+}
+
+img {
+  margin: 40px auto;
+  max-width: 400px;
+}
+
+.welcome-text {
+  text-align: center;
+}
+
+a {
+  color: colors.$hj-green
+}
+
+
